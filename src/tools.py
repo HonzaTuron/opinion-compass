@@ -1,12 +1,3 @@
-"""This module defines the tools used by the agent.
-
-Feel free to modify or add new tools to suit your specific needs.
-
-To learn how to create a new tool, see:
-- https://python.langchain.com/docs/concepts/tools/
-- https://python.langchain.com/docs/how_to/#tools
-"""
-
 from __future__ import annotations
 from typing import Annotated
 from langgraph.prebuilt import InjectedState, ToolNode

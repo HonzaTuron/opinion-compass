@@ -77,7 +77,7 @@ async def social_media_handle_finding_agent(state: State):
     handles = llm_structured.invoke(response['messages'][-1].content)
     
     return {
-        "handles": handles
+        "handles": handles,
     }
 
 async def data_gather_agent(state: State):
@@ -122,7 +122,7 @@ async def data_gather_agent(state: State):
     Actor.log.debug('Data gathering agent response %s', response)
 
     return {
-        "rawEvidence": response["structured_response"]
+        "rawEvidence": response["structured_response"],
     }
 
 async def scoring_agent(state: State):
@@ -178,7 +178,7 @@ async def scoring_agent(state: State):
     scored_evidences = parser.parse(response.content)
 
     return {
-        "evidence": scored_evidences
+        "evidence": scored_evidences,
     }
 
 async def main() -> None:
@@ -235,7 +235,6 @@ async def main() -> None:
 
         inputs: dict = {'messages': [('user', query)], "name": person}
         response: AgentStructuredOutput | None = None
-        last_message: str | None = None
         last_state: dict | None = None
 
         async for state in graph.astream(inputs, config, stream_mode='values'):
@@ -243,27 +242,17 @@ async def main() -> None:
             if 'evidence' in state:
                 response = state['evidence']
         
-        # if not response or not last_message or not last_state:
-            # Actor.log.error('Failed to get a response from the ReAct agent!')
-            # await Actor.fail(status_message='Failed to get a response from the ReAct agent!')
-            # return
-
-        if not (messages := last_state.get('messages')):
-            Actor.log.error('Failed to get messages from the ReAct agent!')
-            await Actor.fail(status_message='Failed to get messages from the ReAct agent!')
+        if not response or not last_state:
+            Actor.log.error('Failed to get a response from the ReAct agent!')
+            await Actor.fail(status_message='Failed to get a response from the ReAct agent!')
             return
-
+        
         # if not (total_tokens := get_all_messages_total_tokens(messages)):
         #     Actor.log.error('Failed to calculate the total number of tokens used!')
         #     await Actor.fail(status_message='Failed to calculate the total number of tokens used!')
         #     return
 
         # await charge_for_model_tokens(model_name, total_tokens)
-
-        # Push results to the key-value store and dataset
-        # store = await Actor.open_key_value_store()
-        # await store.set_value('response.txt', last_message)
-        # Actor.log.info('Saved the "response.txt" file into the key-value store!')
 
         result = response.model_dump() if response else {}
 
