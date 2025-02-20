@@ -11,31 +11,11 @@ from __future__ import annotations
 from typing import Annotated
 from langgraph.prebuilt import InjectedState, ToolNode
 
-import json
-import os
-
 from apify import Actor
 from langchain_core.tools import tool
 from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
-from src.models import RawEvidence, RawEvidenceList, Evidence, EvidenceList, SocialMediaHandle
-
-class Cache[T]:
-    """A class to handle caching of data to JSON files."""
-    
-    def __init__(self, cache_name: str):
-        self.filename = f"__datacache__/cache_{cache_name}.json"
-    
-    def read(self):
-        if os.path.exists(self.filename):
-            with open(self.filename, 'r', encoding='utf-8') as f:
-                cached_data = json.load(f)
-                return [T(**item) for item in cached_data]
-        return None
-    
-    def write(self, data: any):
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+from src.models import RawEvidence, EvidenceList
 
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
@@ -53,11 +33,6 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
     """
 
     Actor.log.debug('Scraping X/Twitter posts for %s', handle)
-
-    # cache = Cache[RawEvidence]('x.json')
-    # data = cache.read()
-    # if data:
-    #     return data
 
     run_input = {
         'twitterHandles': [handle],
@@ -91,8 +66,6 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
             )
         )
 
-    # cache.write(evidence)
-    print('findme', evidence)
     Actor.log.debug('Scraped %d X/Twitter posts for %s', len(evidence), handle)
     return evidence
 
@@ -111,11 +84,6 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
     Raises:
         RuntimeError: If the Actor fails to start.
     """
-    
-    cache = Cache[RawEvidence]('instagram.json')
-    data = cache.read()
-    if data:
-        return data
 
     run_input = {
         'directUrls': [f'https://www.instagram.com/{handle}/'],
@@ -146,8 +114,6 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
                 source='Instagram',
             )
         )
-
-    cache.write(posts)
     
     return posts
 
@@ -203,10 +169,6 @@ async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     Returns:
         list[str]: List of social media handles found in the search results.
     """
-    return json.dumps({
-        "Twitter/X": "tomio_cz",
-        "Instagram": "tomio.cz"
-    })
 
     social_networks = ['Twitter/X', 'Instagram']
     Actor.log.debug('Searching for handles for %s on %s', person_name, social_networks)
@@ -246,65 +208,3 @@ async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     Actor.log.debug('Handles for %s on %s: %s', person_name, social_networks, response.content)
 
     return response.content
-
-@tool
-async def tool_score_evidences(foo: str, state: Annotated[dict, InjectedState]) -> EvidenceList:
-    """Tool to score evidences based on their pro-western sentiment.
-
-    Args:
-        evidenceList (EvidenceList): List of evidences to score.
-
-    Returns:
-        EvidenceWithScoreList: List of evidences with their corresponding scores.
-    """
-
-    print('findme scoring evidences')
-    print(state)
-    return
-
-    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0)
-
-    prompt = f"""Analyze the following pieces of evidence and score them based on how pro-western they are.
-    For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
-    - 1.0 represents strongly pro-western sentiment
-    - -1.0 represents strongly anti-western sentiment
-
-    Consider factors such as:
-    - Support for western democratic values
-    - Positive mentions of western countries, institutions, or leaders
-    - Alignment with western foreign policy positions
-    - Support for western economic systems
-
-    For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
-    - 1.0 represents highly relevant evidence
-    - 0.0 represents not relevant at all
-
-    Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
-
-    Evidence is relevant if it can be used to support the claim that the person is pro-western.
-
-    Evidence to analyze:
-    {[{"url": e.url, "text": e.text, "source": e.source} for e in evidenceList.evidences]}
-
-    Return the results in the following JSON format:
-    {{"evidences": [
-        {{
-          "url": "evidence_url",
-          "text": "evidence_text",
-          "source": "evidence_source",
-          "score": 0.0 to 1.0
-          "relevance": 0.0 to 1.0
-        }},
-        ...
-    ]
-    }}
-
-    Url, text and source are always present in the evidence. Just copy them over to the output.
-    """
-    response = await llm.ainvoke(prompt)
-    
-    # Parse and validate the response
-    # Create the output parser to validate the structure
-    parser = PydanticOutputParser(pydantic_object=EvidenceList)
-    scored_evidences = parser.parse(response.content)
-    return scored_evidences

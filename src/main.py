@@ -31,7 +31,7 @@ from langgraph.graph.message import add_messages
 from src.llm import ChatOpenAISingleton
 from src.models import AgentStructuredOutput, EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
-from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts, tool_score_evidences
+from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 from src.utils import log_state
 
 # fallback input is provided only for testing, you need to delete this line
@@ -104,7 +104,6 @@ async def data_gather_agent(state: State):
     """Creates the data gathering agent with social media tools."""
     Actor.log.debug('Running data gathering agent %s', state)
 
-
     tools = [
         # tool_scrape_instagram_profile_posts,
         tool_scrape_x_posts,
@@ -112,12 +111,8 @@ async def data_gather_agent(state: State):
 
     llm = ChatOpenAISingleton.get_instance()
     handles_prompt = ""
-    print(state["handles"])
-    print(type(state["handles"]))
     for handle in state["handles"].handles:
-        print(handle)
         handles_prompt += f"{handle.socialMedia}: {handle.handle}\n"
-    print(handles_prompt)
     
     prompt = (
         f"""
@@ -135,7 +130,6 @@ async def data_gather_agent(state: State):
         """
     )
     messages = [ ( 'user', prompt) ]
-    print('findme prompt', prompt)
 
     agent = create_react_agent(
         llm, 
@@ -156,13 +150,57 @@ async def scoring_agent(state: State):
     
     Actor.log.debug('Running scoring agent %s', state)
 
-    # TODO - use OpenAPI to score the evidence and push to the dataset
+    llm = ChatOpenAISingleton.get_instance()
+    raw_evidence = state["rawEvidence"]
 
-    return {}
+    prompt = f"""Analyze the following pieces of evidence and score them based on how pro-western they are.
+    For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
+    - 1.0 represents strongly pro-western sentiment
+    - -1.0 represents strongly anti-western sentiment
 
+    Consider factors such as:
+    - Support for western democratic values
+    - Positive mentions of western countries, institutions, or leaders
+    - Alignment with western foreign policy positions
+    - Support for western economic systems
 
+    For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
+    - 1.0 represents highly relevant evidence
+    - 0.0 represents not relevant at all
 
+    Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
 
+    Evidence is relevant if it can be used to support the claim that the person is pro-western.
+
+    Evidence to analyze:
+    {[{"url": e.url, "text": e.text, "source": e.source} for e in raw_evidence.evidences]}
+
+    Return the results in the following JSON format:
+    {{"evidences": [
+        {{
+          "url": "evidence_url",
+          "text": "evidence_text",
+          "source": "evidence_source",
+          "score": 0.0 to 1.0
+          "relevance": 0.0 to 1.0
+        }},
+        ...
+    ]
+    }}
+
+    Url, text and source are always present in the evidence. Just copy them over to the output.
+    """
+    response = await llm.ainvoke(prompt)
+    
+    # Parse and validate the response
+    # Create the output parser to validate the structure
+    parser = PydanticOutputParser(pydantic_object=EvidenceList)
+    scored_evidences = parser.parse(response.content)
+
+    print('findme scored_evidences', scored_evidences)
+    return {
+        "evidence": scored_evidences
+    }
 
 async def main() -> None:
     """Main entry point for the Apify Actor.
@@ -225,40 +263,30 @@ async def main() -> None:
 
         async for state in graph.astream(inputs, config, stream_mode='values'):
             last_state = state
-            print('state')
-            print(state)
-            # log_state(state)
-            # if 'structured_response' in state:
-            #     response = state['structured_response']
-            #     last_message = state['messages'][-1].content
-            # if state.get('final'):  # Check if we've reached the END node
-            #     break
+            if 'evidence' in state:
+                response = state['evidence']
         
-        print('findme END')
-        print(last_message)
-        return
-
-        if not response or not last_message or not last_state:
-            Actor.log.error('Failed to get a response from the ReAct agent!')
-            await Actor.fail(status_message='Failed to get a response from the ReAct agent!')
-            return
+        # if not response or not last_message or not last_state:
+            # Actor.log.error('Failed to get a response from the ReAct agent!')
+            # await Actor.fail(status_message='Failed to get a response from the ReAct agent!')
+            # return
 
         if not (messages := last_state.get('messages')):
             Actor.log.error('Failed to get messages from the ReAct agent!')
             await Actor.fail(status_message='Failed to get messages from the ReAct agent!')
             return
 
-        if not (total_tokens := get_all_messages_total_tokens(messages)):
-            Actor.log.error('Failed to calculate the total number of tokens used!')
-            await Actor.fail(status_message='Failed to calculate the total number of tokens used!')
-            return
+        # if not (total_tokens := get_all_messages_total_tokens(messages)):
+        #     Actor.log.error('Failed to calculate the total number of tokens used!')
+        #     await Actor.fail(status_message='Failed to calculate the total number of tokens used!')
+        #     return
 
-        await charge_for_model_tokens(model_name, total_tokens)
+        # await charge_for_model_tokens(model_name, total_tokens)
 
         # Push results to the key-value store and dataset
-        store = await Actor.open_key_value_store()
-        await store.set_value('response.txt', last_message)
-        Actor.log.info('Saved the "response.txt" file into the key-value store!')
+        # store = await Actor.open_key_value_store()
+        # await store.set_value('response.txt', last_message)
+        # Actor.log.info('Saved the "response.txt" file into the key-value store!')
 
         result = response.model_dump() if response else {}
 
