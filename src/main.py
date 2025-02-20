@@ -12,9 +12,25 @@ from apify import Actor
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 from src.llm import ChatOpenAISingleton
-from src.models import AgentStructuredOutput
-from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
+from src.models import AgentStructuredOutput, EvidenceList
+from src.ppe_utils import charge_for_actor_start, charge_for_ai_analysis, charge_for_evidence, get_all_messages_total_tokens
 
+def analyze_results(evidenceList: EvidenceList) -> float:
+    """Analyzes evidence results by calculating weighted sum of scores weighted by relevance.
+        
+    Returns:
+        float: Weighted sum of scores
+    """
+    if not evidenceList.evidences:
+        return 0.0
+        
+    weighted_sum = sum(evidence.score * evidence.relevance for evidence in evidenceList.evidences)
+    total_relevance = sum(evidence.relevance for evidence in evidenceList.evidences)
+    
+    if total_relevance == 0:
+        return 0.0
+        
+    return weighted_sum / total_relevance
 
 async def main() -> None:
     """Main entry point for the Apify Actor.
@@ -81,16 +97,17 @@ async def main() -> None:
             Actor.log.error('Failed to get a response from the ReAct agent!')
             await Actor.fail(status_message='Failed to get a response from the ReAct agent!')
             return
+        
+        total_tokens = get_all_messages_total_tokens(last_state["messages"])
+        Actor.log.debug('Num tokens: %s', total_tokens)
 
-        if not (total_tokens := get_all_messages_total_tokens(last_state["messages"])):
-            Actor.log.error('Failed to calculate the total number of tokens used!')
-            await Actor.fail(status_message='Failed to calculate the total number of tokens used!')
-            return
-
-        Actor.log.debug('Total tokens: %s', total_tokens)
-        # await charge_for_model_tokens(model_name, total_tokens)
-
-        result = response.model_dump() if response else {}
-
+        result = response.model_dump()
+        await charge_for_evidence(len(result['evidences']))
         await Actor.push_data(result)
-        Actor.log.info('Pushed the into the dataset!')
+        Actor.log.info('Pushed evidence into the dataset!')
+
+        await charge_for_ai_analysis()
+        score = analyze_results(response)
+        await Actor.set_value('ai-analysis', { "score": score })
+        Actor.log.info('The final score is %s', score)
+        
