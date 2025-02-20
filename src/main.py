@@ -16,7 +16,7 @@ from langgraph.prebuilt import create_react_agent
 
 from src.models import AgentStructuredOutput
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
-from src.tools import tool_calculator_sum, tool_scrape_instagram_profile_posts
+from src.tools import tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 from src.utils import log_state
 
 # fallback input is provided only for testing, you need to delete this line
@@ -24,7 +24,6 @@ fallback_input = {
     'query': 'This is fallback test query, do not nothing and ignore it.',
     'modelName': 'gpt-4o-mini',
 }
-
 
 async def main() -> None:
     """Main entry point for the Apify Actor.
@@ -56,7 +55,10 @@ async def main() -> None:
 
         # Create the ReAct agent graph
         # see https://langchain-ai.github.io/langgraph/reference/prebuilt/?h=react#langgraph.prebuilt.chat_agent_executor.create_react_agent
-        tools = [tool_calculator_sum, tool_scrape_instagram_profile_posts]
+        tools = [
+            tool_scrape_instagram_profile_posts,
+            tool_scrape_x_posts,
+        ]
         graph = create_react_agent(llm, tools, response_format=AgentStructuredOutput)
 
         inputs: dict = {'messages': [('user', query)]}
@@ -93,10 +95,10 @@ async def main() -> None:
         await store.set_value('response.txt', last_message)
         Actor.log.info('Saved the "response.txt" file into the key-value store!')
 
-        await Actor.push_data(
-            {
-                'response': last_message,
-                'structured_response': response.dict() if response else {},
-            }
-        )
+        res = {
+            'response': last_message,
+            'structured_response': response.dict() if response else {},
+        }
+        print(res)
+        await Actor.push_data(res)
         Actor.log.info('Pushed the into the dataset!')

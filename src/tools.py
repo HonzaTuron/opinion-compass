@@ -12,7 +12,7 @@ from __future__ import annotations
 from apify import Actor
 from langchain_core.tools import tool
 
-from src.models import InstagramPost
+from src.models import Evidence
 
 
 @tool
@@ -27,9 +27,57 @@ def tool_calculator_sum(numbers: list[int]) -> int:
     """
     return sum(numbers)
 
+@tool
+async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence]:
+    """Tool to scrape X (Twitter) posts.
+
+    Args:
+        handle (str): X/Twitter handle of the profile to scrape (without the '@' symbol).
+        max_posts (int, optional): Maximum number of posts to scrape. Defaults to 30.
+
+    Returns:
+        list[Evidence]: List of evidence objects scraped from the X/Twitter profile.
+
+    Raises:
+        RuntimeError: If the Actor fails to start.
+    """
+    run_input = {
+        'twitterHandles': [handle],
+        'maxItems': max_posts,
+        'onlyVerifiedUsers': False,
+        'onlyTwitterBlue': False,
+        'sort': 'Latest'
+    }
+    if not (run := await Actor.apify_client.actor('apidojo/tweet-scraper').call(run_input=run_input)):
+        msg = 'Failed to start the Actor apidojo/tweet-scraper'
+        raise RuntimeError(msg)
+
+    dataset_id = run['defaultDatasetId']
+    dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
+    evidence: list[Evidence] = []
+    for item in dataset_items:
+        url: str | None = item.get('url')
+        text: str | None = item.get('text')  # Twitter's text content
+        source: str | None = 'X/Twitter'
+
+        # only include posts with all required fields
+        if not url or not text:
+            Actor.log.warning('Skipping post with missing fields: %s', item)
+            continue
+
+        evidence.append(
+            Evidence(
+                url=url,
+                text=text,
+                source=source,
+            )
+        )
+
+    return evidence
+
 
 @tool
-async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) -> list[InstagramPost]:
+async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) -> list[Evidence]:
     """Tool to scrape Instagram profile posts.
 
     Args:
@@ -37,7 +85,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
         max_posts (int, optional): Maximum number of posts to scrape. Defaults to 30.
 
     Returns:
-        list[InstagramPost]: List of Instagram posts scraped from the profile.
+        list[Evidence]: List of Evidence objects containing the scraped posts.
 
     Raises:
         RuntimeError: If the Actor fails to start.
@@ -52,30 +100,39 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
         msg = 'Failed to start the Actor apify/instagram-scraper'
         raise RuntimeError(msg)
 
-    dataset_id = run['defaultDatasetId']
-    dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-    posts: list[InstagramPost] = []
-    for item in dataset_items:
-        url: str | None = item.get('url')
-        caption: str | None = item.get('caption')
-        alt: str | None = item.get('alt')
-        likes: int | None = item.get('likesCount')
-        comments: int | None = item.get('commentsCount')
-        timestamp: str | None = item.get('timestamp')
+    for item in dataset_items.items:
+        url = item.get('url')
+        caption = item.get('caption')
 
-        # only include posts with all required fields
-        if not url or not likes or not comments or not timestamp:
+        if not url or not caption:
             Actor.log.warning('Skipping post with missing fields: %s', item)
             continue
 
         posts.append(
-            InstagramPost(
+            Evidence(
                 url=url,
-                likes=likes,
-                comments=comments,
-                timestamp=timestamp,
-                caption=caption,
-                alt=alt,
+                text=caption,
+                source='Instagram',
+            )
+        )
+
+    dataset_id = run['defaultDatasetId']
+    dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
+    posts: list[Evidence] = []
+    for item in dataset_items:
+        url = item.get('url')
+        caption = item.get('caption')
+        alt = item.get('alt')
+
+        if not url or not caption:
+            Actor.log.warning('Skipping post with missing fields: %s', item)
+            continue
+
+        posts.append(
+            Evidence(
+                url=url,
+                text=caption + ' ' + alt,
+                source='Instagram',
             )
         )
 

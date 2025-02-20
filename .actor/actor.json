@@ -12,5 +12,8 @@
 	"meta": {
 		"templateId": "python-langgraph"
 	},
-	"dockerfile": "./Dockerfile"
+	"dockerfile": "./Dockerfile",
+	"environmentVariables": {
+      "OPENAI_API_KEY": "@openAiApiKey"
+    }
 }
