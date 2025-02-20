@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from apify import Actor
 from langchain_core.tools import tool
+from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
-
-from src.models import Evidence
+from src.models import RawEvidence, RawEvidenceList, Evidence, EvidenceList
 
 
 @tool
@@ -29,7 +29,7 @@ def tool_calculator_sum(numbers: list[int]) -> int:
     return sum(numbers)
 
 @tool
-async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence]:
+async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
     """Tool to scrape X (Twitter) posts.
 
     Args:
@@ -42,6 +42,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence
     Raises:
         RuntimeError: If the Actor fails to start.
     """
+
     run_input = {
         'twitterHandles': [handle],
         'maxItems': max_posts,
@@ -55,7 +56,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence
 
     dataset_id = run['defaultDatasetId']
     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-    evidence: list[Evidence] = []
+    evidence: list[RawEvidence] = []
     for item in dataset_items:
         url: str | None = item.get('url')
         text: str | None = item.get('text')  # Twitter's text content
@@ -67,7 +68,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence
             continue
 
         evidence.append(
-            Evidence(
+            RawEvidence(
                 url=url,
                 text=text,
                 source=source,
@@ -78,7 +79,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[Evidence
 
 
 @tool
-async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) -> list[Evidence]:
+async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
     """Tool to scrape Instagram profile posts.
 
     Args:
@@ -91,6 +92,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
     Raises:
         RuntimeError: If the Actor fails to start.
     """
+
     run_input = {
         'directUrls': [f'https://www.instagram.com/{handle}/'],
         'resultsLimit': max_posts,
@@ -103,7 +105,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
 
     dataset_id = run['defaultDatasetId']
     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-    posts: list[Evidence] = []
+    posts: list[RawEvidence] = []
     for item in dataset_items:
         url = item.get('url')
         caption = item.get('caption')
@@ -114,10 +116,10 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
             continue
 
         posts.append(
-            Evidence(
-            url=url,
-            text=caption + ' ' + (alt if alt else ''),
-            source='Instagram',
+            RawEvidence(
+                url=url,
+                text=caption + ' ' + (alt if alt else ''),
+                source='Instagram',
             )
         )
 
@@ -192,18 +194,57 @@ async def tool_person_name_to_social_network_handle(person_name: str, social_net
     return organic_results
 
 @tool
-async def tool_texts_sentiment_analysis(texts: list[str]):
-    """Tool to analyze the sentiment of a list of texts.
+async def tool_score_evidences(evidenceList: RawEvidenceList) -> EvidenceList:
+    """Tool to score evidences based on their pro-western sentiment.
 
     Args:
-        texts (list[str]): List of texts to analyze.
+        evidenceList (EvidenceList): List of evidences to score.
 
     Returns:
-        list[dict]: List of dictionaries containing the sentiment analysis results for each text.
+        EvidenceWithScoreList: List of evidences with their corresponding scores.
     """
-    llm = ChatOpenAI(model='gpt-4o')
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0)
 
-    result = llm.invoke(input=f'Analyze the sentiment of the following texts: {'. '.join(texts)}')
+    prompt = f"""Analyze the following pieces of evidence and score them based on how pro-western they are.
+    For each evidence, provide a score between 0 and 1, where:
+    - 1.0 represents strongly pro-western sentiment
+    - 0.5 represents neutral sentiment
+    - 0.0 represents strongly anti-western sentiment
+
+    Consider factors such as:
+    - Support for western democratic values
+    - Positive mentions of western countries, institutions, or leaders
+    - Alignment with western foreign policy positions
+    - Support for western economic systems
+
+    For each evidence, provide a relevance score between 0 and 1, where:
+    - 1.0 represents highly relevant evidence
+    - 0.0 represents not relevant at all
+
+    Evidence is relevant if it can be used to support the claim that the person is pro-western.
+
+    Evidence to analyze:
+    {[{"url": e.url, "text": e.text, "source": e.source} for e in evidenceList.evidences]}
+
+    Return the results in the following JSON format:
+    {{"evidences": [
+        {{
+          "url": "evidence_url",
+          "text": "evidence_text",
+          "source": "evidence_source",
+          "score": 0.0 to 1.0
+          "relevance": 0.0 to 1.0
+        }},
+        ...
+    ]
+    }}
+
+    Url, text and source are always present in the evidence. Just copy them over to the output.
+    """
+    response = await llm.ainvoke(prompt)
     
-    print(result)
-    return result
+    # Parse and validate the response
+    # Create the output parser to validate the structure
+    parser = PydanticOutputParser(pydantic_object=EvidenceList)
+    scored_evidences = parser.parse(response.content)
+    return scored_evidences
