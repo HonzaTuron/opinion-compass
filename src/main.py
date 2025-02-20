@@ -16,7 +16,7 @@ from langgraph.prebuilt import create_react_agent
 
 from src.models import AgentStructuredOutput
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
-from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts, tool_texts_sentiment_analysis
+from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts, tool_score_evidences
 from src.utils import log_state
 
 # fallback input is provided only for testing, you need to delete this line
@@ -59,7 +59,7 @@ async def main() -> None:
             tool_person_name_to_social_network_handle,
             tool_scrape_instagram_profile_posts,
             tool_scrape_x_posts,
-            tool_texts_sentiment_analysis,
+            tool_score_evidences,
         ]
         graph = create_react_agent(llm, tools, response_format=AgentStructuredOutput)
 
