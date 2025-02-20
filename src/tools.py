@@ -13,7 +13,7 @@ from apify import Actor
 from langchain_core.tools import tool
 from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
-from src.models import RawEvidence, RawEvidenceList, Evidence, EvidenceList
+from src.models import RawEvidence, RawEvidenceList, EvidenceList
 
 
 @tool
