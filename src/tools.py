@@ -100,22 +100,6 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
         msg = 'Failed to start the Actor apify/instagram-scraper'
         raise RuntimeError(msg)
 
-    for item in dataset_items.items:
-        url = item.get('url')
-        caption = item.get('caption')
-
-        if not url or not caption:
-            Actor.log.warning('Skipping post with missing fields: %s', item)
-            continue
-
-        posts.append(
-            Evidence(
-                url=url,
-                text=caption,
-                source='Instagram',
-            )
-        )
-
     dataset_id = run['defaultDatasetId']
     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
     posts: list[Evidence] = []
