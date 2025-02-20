@@ -135,7 +135,7 @@ async def scoring_agent(state: State):
     Evidence is relevant if it can be used to support the claim that the person is pro-western.
 
     Evidence to analyze:
-    {[{"url": e.url, "text": e.text, "source": e.source} for e in raw_evidence.evidences]}
+    {[{"text": e.text} for e in raw_evidence.evidences]}
 
     Return the results in the following JSON format:
     {{"evidences": [

@@ -8,6 +8,8 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
 from src.models import RawEvidence, EvidenceList
 
+MAX_TEXT_LENGTH = 200
+
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
     """Tool to scrape X (Twitter) posts.
@@ -52,7 +54,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
         evidence.append(
             RawEvidence(
                 url=url,
-                text=text,
+                text=text if len(text) < MAX_TEXT_LENGTH else f"{text[:MAX_TEXT_LENGTH]}...",
                 source=source,
             )
         )
@@ -100,11 +102,12 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
         if not url or not caption:
             Actor.log.warning('Skipping post with missing fields: %s', item)
             continue
-
+        text = caption + ' ' + (alt if alt else '')
+        text = text if len(text) < MAX_TEXT_LENGTH else f"{text[:MAX_TEXT_LENGTH]}..."
         evidence.append(
             RawEvidence(
                 url=url,
-                text=caption + ' ' + (alt if alt else ''),
+                text=text,
                 source='Instagram',
             )
         )
