@@ -81,11 +81,12 @@ async def data_gather_agent(state: State):
             {handles_prompt}
 
             Instructions:
-            1. Get 20 most recent posts from each social network using person's handle.
+            1. Get 10 most recent posts from each social network using person's handle.
             2. For each social media, only use the corresponding handle from the mapping above.
             3. If the handle for this social media is missing, skip this social media.
             3. Combine all evidence into a single list
             4. Do not filter or remove any evidence
+            5. convert all non-asci characters to their closest ascii equivalents
         """
     )
     messages = [ ( 'user', prompt) ]
