@@ -1,44 +1,24 @@
-"""This module defines the main entry point for the Apify Actor.
-
-Feel free to modify this file to suit your specific needs.
-
-To build Apify Actors, utilize the Apify SDK toolkit, read more at the official documentation:
-https://docs.apify.com/sdk/python
-"""
-
 from __future__ import annotations
 
 from collections import namedtuple
 import logging
 
-from langgraph.checkpoint.memory import MemorySaver
-from apify import Actor
-from langchain_core.messages import ToolMessage
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
-from langgraph.graph import StateGraph, END
-from typing import TYPE_CHECKING, TypeVar, Annotated, Sequence, List, TypedDict
-from operator import itemgetter
-from pydantic import BaseModel, Field
-from langchain.output_parsers import PydanticOutputParser
-from langgraph.pregel import RetryPolicy
-from tenacity import retry
+from typing import TYPE_CHECKING, Annotated, Sequence, List, TypedDict
 if TYPE_CHECKING:
     from langchain_core.runnables.config import RunnableConfig
 
-from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+from apify import Actor
+from langchain_core.messages import ToolMessage
+from langgraph.prebuilt import create_react_agent
+from langgraph.graph import StateGraph, END
 
+from langchain.output_parsers import PydanticOutputParser
+from langgraph.graph.message import add_messages
 from src.llm import ChatOpenAISingleton
 from src.models import AgentStructuredOutput, EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
 from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
-from src.utils import log_state
-
-# fallback input is provided only for testing, you need to delete this line
-fallback_input = {
-    'query': 'This is fallback test query, do not nothing and ignore it.',
-    'modelName': 'gpt-4o',
-}
 
 # Define state type
 class State(TypedDict):
@@ -214,17 +194,17 @@ async def main() -> None:
     async with Actor:
         # Handle input
         actor_input = await Actor.get_input()
-        # fallback input is provided only for testing, you need to delete this line
-        actor_input = {**fallback_input, **actor_input}
 
-        query = actor_input.get('query')
-        model_name = actor_input.get('modelName', 'gpt-4o')
+        person = actor_input.get('person')
         debug = actor_input.get('debug', False)
+        model_name = actor_input.get('modelName', 'gpt-4o')
         if debug:
             Actor.log.setLevel(logging.DEBUG)
-        if not query:
-            msg = 'Missing "query" attribute in input!'
-            raise ValueError(msg)
+
+        query = f"""
+            Find out if {person} is pro-western. To do this, find his social media handles and scrape his posts from social media.
+            Then, score each post based on how pro-western it is.
+        """
 
         await charge_for_actor_start()
 
@@ -253,7 +233,7 @@ async def main() -> None:
         memory = MemorySaver()
         graph = workflow.compile(checkpointer=memory)
 
-        inputs: dict = {'messages': [('user', query)], "name": "Tomio Okamura"}
+        inputs: dict = {'messages': [('user', query)], "name": person}
         response: AgentStructuredOutput | None = None
         last_message: str | None = None
         last_state: dict | None = None
