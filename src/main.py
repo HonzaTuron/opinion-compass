@@ -197,7 +197,6 @@ async def scoring_agent(state: State):
     parser = PydanticOutputParser(pydantic_object=EvidenceList)
     scored_evidences = parser.parse(response.content)
 
-    print('findme scored_evidences', scored_evidences)
     return {
         "evidence": scored_evidences
     }
@@ -234,7 +233,6 @@ async def main() -> None:
          # Create the graph
         config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': debug}}
 
-
         # Create the graph
         workflow = StateGraph(State)
 
@@ -254,7 +252,6 @@ async def main() -> None:
         # Compile the graph
         memory = MemorySaver()
         graph = workflow.compile(checkpointer=memory)
-        
 
         inputs: dict = {'messages': [('user', query)], "name": "Tomio Okamura"}
         response: AgentStructuredOutput | None = None
