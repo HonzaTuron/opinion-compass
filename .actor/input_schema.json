@@ -3,25 +3,20 @@
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "query": {
-      "title": "Query",
+    "person": {
+      "title": "Person",
       "type": "string",
-      "description": "Query for the agent.",
+      "description": "Person whose opinions you want to analyze.",
       "editor": "textfield",
-      "prefill": "What is the total number of likes and the total number of comments for the latest 10 posts on the @openai Instagram account? From the 10 latest posts, show me the most popular one."
+      "prefill": "Tomio Okamura"
     },
-    "modelName": {
-      "title": "OpenAI model",
+    "opinionCategory": {
+      "title": "Opinion category",
       "type": "string",
-      "description": "The OpenAI model to use. Currently supported models are gpt-4o and gpt-4o-mini, and the reasoning models o1 and o3-mini.",
-      "enum": [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o1",
-        "o3-mini"
-      ],
-      "default": "gpt-4o-mini",
-      "prefill": "gpt-4o-mini"
+      "description": "Opinion you want to analyze for given person.",
+      "editor": "textfield",
+      "prefill": "pro-Russian"
+
     },
     "debug": {
       "title": "Debug",
@@ -31,5 +26,5 @@
       "default": false
     }
   },
-  "required": ["query"]
+  "required": ["person", "opinionCategory"]
 }
