@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from apify import Actor
 from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
 
 from src.models import Evidence
 
@@ -114,10 +115,95 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
 
         posts.append(
             Evidence(
-                url=url,
-                text=caption + ' ' + alt,
-                source='Instagram',
+            url=url,
+            text=caption + ' ' + (alt if alt else ''),
+            source='Instagram',
             )
         )
 
     return posts
+
+
+# @tool
+# async def tool_scrape_wikipedia_page(page_title: str) -> Evidence:
+#     """Tool to scrape a Wikipedia page.
+
+#     Args:
+#         page_title (str): Title of the Wikipedia page to scrape.
+
+#     Returns:
+#         Evidence: Evidence object containing the scraped page content.
+
+#     Raises:
+#         RuntimeError: If the Actor fails to start.
+#     """
+#     run_input = {
+#         'url': f'https://en.wikipedia.org/wiki/{page_title}',
+#     }
+#     if not (run := await Actor.apify_client.actor('apify/web-scraper').call(run_input=run_input)):
+#         msg = 'Failed to start the Actor apify/web-scraper'
+#         raise RuntimeError(msg)
+
+#     dataset_id = run['defaultDatasetId']
+#     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
+#     if not dataset_items:
+#         msg = 'Failed to scrape the Wikipedia page'
+#         raise RuntimeError(msg)
+
+#     item = dataset_items[0]
+#     url = item.get('url')
+#     text = item.get('text')
+
+#     if not url or not text:
+#         msg = 'Failed to scrape the Wikipedia page'
+#         raise RuntimeError(msg)
+
+#     return Evidence(
+#         url=url,
+#         text=text,
+#         source='Wikipedia',
+#     )
+
+@tool
+async def tool_person_name_to_social_network_handle(person_name: str, social_networks: list[str]):
+    """Tool to scrape social media handles from Google search results.
+
+    Args:
+        person_name (str): Name of the person to search for.
+        social_networks (list[str]): Social network to search for handles.
+
+    Returns:
+        list[str]: List of social media handles found in the search results.
+    """
+    search_query = f'{person_name} {" and ".join(social_networks)}'
+    run_input = {
+        'queries': search_query,
+        'maxPagesPerQuery': 1,
+    }
+    if not (run := await Actor.apify_client.actor('apify/google-search-scraper').call(run_input=run_input)):
+        msg = 'Failed to start the Actor apify/google-search-scraper'
+        raise RuntimeError(msg)
+
+    dataset_id = run['defaultDatasetId']
+    dataset_items = (await Actor.apify_client.dataset(dataset_id).list_items()).items[0]
+    organic_results = dataset_items.get('organicResults')
+
+    print(organic_results)
+    return organic_results
+
+@tool
+async def tool_texts_sentiment_analysis(texts: list[str]):
+    """Tool to analyze the sentiment of a list of texts.
+
+    Args:
+        texts (list[str]): List of texts to analyze.
+
+    Returns:
+        list[dict]: List of dictionaries containing the sentiment analysis results for each text.
+    """
+    llm = ChatOpenAI(model='gpt-4o')
+
+    result = llm.invoke(input=f'Analyze the sentiment of the following texts: {'. '.join(texts)}')
+    
+    print(result)
+    return result

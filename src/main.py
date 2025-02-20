@@ -16,13 +16,13 @@ from langgraph.prebuilt import create_react_agent
 
 from src.models import AgentStructuredOutput
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
-from src.tools import tool_scrape_instagram_profile_posts, tool_scrape_x_posts
+from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts, tool_texts_sentiment_analysis
 from src.utils import log_state
 
 # fallback input is provided only for testing, you need to delete this line
 fallback_input = {
     'query': 'This is fallback test query, do not nothing and ignore it.',
-    'modelName': 'gpt-4o-mini',
+    'modelName': 'gpt-4o',
 }
 
 async def main() -> None:
@@ -42,7 +42,7 @@ async def main() -> None:
         actor_input = {**fallback_input, **actor_input}
 
         query = actor_input.get('query')
-        model_name = actor_input.get('modelName', 'gpt-4o-mini')
+        model_name = actor_input.get('modelName', 'gpt-4o')
         if actor_input.get('debug', False):
             Actor.log.setLevel(logging.DEBUG)
         if not query:
@@ -56,8 +56,10 @@ async def main() -> None:
         # Create the ReAct agent graph
         # see https://langchain-ai.github.io/langgraph/reference/prebuilt/?h=react#langgraph.prebuilt.chat_agent_executor.create_react_agent
         tools = [
+            tool_person_name_to_social_network_handle,
             tool_scrape_instagram_profile_posts,
             tool_scrape_x_posts,
+            tool_texts_sentiment_analysis,
         ]
         graph = create_react_agent(llm, tools, response_format=AgentStructuredOutput)
 
@@ -95,10 +97,8 @@ async def main() -> None:
         await store.set_value('response.txt', last_message)
         Actor.log.info('Saved the "response.txt" file into the key-value store!')
 
-        res = {
-            'response': last_message,
-            'structured_response': response.dict() if response else {},
-        }
-        print(res)
-        await Actor.push_data(res)
+        result = response.model_dump() if response else {}
+
+        print(result)
+        await Actor.push_data(result)
         Actor.log.info('Pushed the into the dataset!')
