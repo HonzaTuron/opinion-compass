@@ -11,6 +11,12 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 
+class SocialMediaHandle(BaseModel):
+    socialMedia: str
+    handle: str
+
+class SocialMediaHandles(BaseModel):
+    handles: list[SocialMediaHandle]
 
 class RawEvidence(BaseModel):
     """Represents evidence relating to a claim of particular person."""

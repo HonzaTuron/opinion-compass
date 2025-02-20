@@ -8,13 +8,28 @@ https://docs.apify.com/sdk/python
 
 from __future__ import annotations
 
+from collections import namedtuple
 import logging
 
+from langgraph.checkpoint.memory import MemorySaver
 from apify import Actor
+from langchain_core.messages import ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
+from langgraph.graph import StateGraph, END
+from typing import TYPE_CHECKING, TypeVar, Annotated, Sequence, List, TypedDict
+from operator import itemgetter
+from pydantic import BaseModel, Field
+from langchain.output_parsers import PydanticOutputParser
+from langgraph.pregel import RetryPolicy
+from tenacity import retry
+if TYPE_CHECKING:
+    from langchain_core.runnables.config import RunnableConfig
 
-from src.models import AgentStructuredOutput
+from langgraph.graph.message import add_messages
+
+from src.llm import ChatOpenAISingleton
+from src.models import AgentStructuredOutput, EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.ppe_utils import charge_for_actor_start, charge_for_model_tokens, get_all_messages_total_tokens
 from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts, tool_score_evidences
 from src.utils import log_state
@@ -24,6 +39,176 @@ fallback_input = {
     'query': 'This is fallback test query, do not nothing and ignore it.',
     'modelName': 'gpt-4o',
 }
+
+# Define state type
+class State(TypedDict):
+    """State of the agent graph."""
+
+    messages: Annotated[list, add_messages]
+    handles: SocialMediaHandles
+    name: str
+    rawEvidence: RawEvidenceList
+    
+
+# async def social_media_handle_finding_agent(state: State):
+#     """Creates an agent that finds social media handles."""
+    
+#     print(state)
+#     Actor.log.debug('Running social media handle finding agent', state)
+
+#     llm = ChatOpenAISingleton.get_instance()
+
+#     tools = [
+#         tool_person_name_to_social_network_handle
+#     ]
+#     agent = create_react_agent(
+#         llm,
+#         tools,
+#     )
+
+#     messages = [
+#         (
+#             'user',
+#             (
+#                 f"Find the social media handles for the person {state['name']}."
+#             ),
+#         )
+#     ]
+#     response: dict = {}
+#     async for substate in agent.astream({'messages': messages}, stream_mode='values'):
+#         message = substate['messages'][-1]
+#         # traverse all tool messages and print them
+#         if isinstance(message, ToolMessage):
+#             # until the analyst message with tool_calls
+#             for _message in substate['messages'][::-1]:
+#                 if hasattr(_message, 'tool_calls'):
+#                     break
+#                 Actor.log.debug('-------- Tool --------')
+#                 Actor.log.debug('Message: %s', _message)
+#             continue
+
+#         Actor.log.debug('-------- Analyst --------')
+#         Actor.log.debug('Message: %s', message)
+#         response = substate
+#     # response = await agent.ainvoke({'messages': messages})
+
+#     Actor.log.debug('Social media handle finding agent response', response)
+#     print(response)
+#     return {
+#         "messages": [response['messages'][-1]],
+#     }
+   
+async def social_media_handle_finding_agent(state: State):
+    """Creates an agent that finds social media handles."""
+
+    Actor.log.debug('Running social media handle finding agent %s', state)
+
+    llm = ChatOpenAISingleton.get_instance()
+    llm_structured = llm.with_structured_output(SocialMediaHandles)
+
+    tools = [
+        tool_person_name_to_social_network_handle
+    ]
+    agent = create_react_agent(
+        llm,
+        tools,
+    )
+
+    messages = [
+        (
+            'user',
+            (
+                f"Find the social media handles for the person {state['name']}."
+            ),
+        )
+    ]
+
+    response: dict = {}
+    async for substate in agent.astream({'messages': messages}, stream_mode='values'):
+        message = substate['messages'][-1]
+        # traverse all tool messages and print them
+        if isinstance(message, ToolMessage):
+            # until the analyst message with tool_calls
+            for _message in substate['messages'][::-1]:
+                if hasattr(_message, 'tool_calls'):
+                    break
+                Actor.log.debug('-------- Tool --------')
+                Actor.log.debug('Message: %s', _message)
+            continue
+
+        Actor.log.debug('-------- Analyst --------')
+        Actor.log.debug('Message: %s', message)
+        response = substate
+    # response = await agent.ainvoke({'messages': messages})
+
+    Actor.log.debug('Social media handle finding agent response %s', response)
+    handles = llm_structured.invoke(response['messages'][-1].content)
+    
+    return {
+        "handles": handles
+    }
+
+async def data_gather_agent(state: State):
+    """Creates the data gathering agent with social media tools."""
+    Actor.log.debug('Running data gathering agent %s', state)
+
+
+    tools = [
+        # tool_scrape_instagram_profile_posts,
+        tool_scrape_x_posts,
+    ]
+
+    llm = ChatOpenAISingleton.get_instance()
+    handles_prompt = ""
+    print(state["handles"])
+    print(type(state["handles"]))
+    for handle in state["handles"].handles:
+        print(handle)
+        handles_prompt += f"{handle.socialMedia}: {handle.handle}\n"
+    print(handles_prompt)
+    
+    prompt = (
+        f"""
+            You are an agent that gathers evidence from social media.
+            
+            Use the social media handles from this mapping:
+            {handles_prompt}
+
+            Instructions:
+            1. Get 10 recent posts from each social network using person's handle.
+            2. For each social media, only use the corresponding handle from the mapping above.
+            3. If the handle for this social media is missing, skip this social media.
+            3. Combine all evidence into a single list
+            4. Do not filter or remove any evidence
+        """
+    )
+    messages = [ ( 'user', prompt) ]
+    print('findme prompt', prompt)
+
+    agent = create_react_agent(
+        llm, 
+        tools,
+        response_format=RawEvidenceList
+    )
+
+    response = await agent.ainvoke({'messages': messages})
+    
+    Actor.log.debug('Data gathering agent response %s', response)
+
+    return {
+        "rawEvidence": response["structured_response"]
+    }
+
+async def scoring_agent(state: State):
+    """Creates the scoring agent."""
+    
+    Actor.log.debug('Running scoring agent %s', state)
+
+    return {}
+
+
+
+
 
 async def main() -> None:
     """Main entry point for the Apify Actor.
@@ -43,7 +228,8 @@ async def main() -> None:
 
         query = actor_input.get('query')
         model_name = actor_input.get('modelName', 'gpt-4o')
-        if actor_input.get('debug', False):
+        debug = actor_input.get('debug', False)
+        if debug:
             Actor.log.setLevel(logging.DEBUG)
         if not query:
             msg = 'Missing "query" attribute in input!'
@@ -51,29 +237,59 @@ async def main() -> None:
 
         await charge_for_actor_start()
 
-        llm = ChatOpenAI(model=model_name)
+        ChatOpenAISingleton.create_get_instance(model=model_name)
 
-        # Create the ReAct agent graph
-        # see https://langchain-ai.github.io/langgraph/reference/prebuilt/?h=react#langgraph.prebuilt.chat_agent_executor.create_react_agent
-        tools = [
-            tool_person_name_to_social_network_handle,
-            tool_scrape_instagram_profile_posts,
-            tool_scrape_x_posts,
-            tool_score_evidences,
-        ]
-        graph = create_react_agent(llm, tools, response_format=AgentStructuredOutput)
+         # Create the graph
+        config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': debug}}
+        
+        # Create the two agents
+        # social_media_handles_agent = create_social_media_handle_finding_agent
+        # data_gathering_agent = create_data_gathering_agent(llm)
+        # scoring_agent = create_scoring_agent(llm)
 
-        inputs: dict = {'messages': [('user', query)]}
+        # Create the graph
+        workflow = StateGraph(State)
+
+        # Add nodes
+        workflow.add_node(social_media_handle_finding_agent)
+        workflow.add_node(data_gather_agent)
+        workflow.add_node(scoring_agent)
+
+        # Add edges
+        workflow.add_edge("social_media_handle_finding_agent", "data_gather_agent")
+        workflow.add_edge("data_gather_agent", "scoring_agent")
+        workflow.add_edge("scoring_agent", END)
+
+        # Set the entry point
+        workflow.set_entry_point("social_media_handle_finding_agent")
+
+        # Compile the graph
+        memory = MemorySaver()
+        graph = workflow.compile(checkpointer=memory)
+        # graph.update_state(config, {'name': 'Tomio Okamura'})
+        
+        print('findme')
+        print(graph.get_state(config))
+
+        inputs: dict = {'messages': [('user', query)], "name": "Tomio Okamura"}
         response: AgentStructuredOutput | None = None
         last_message: str | None = None
         last_state: dict | None = None
-        async for state in graph.astream(inputs, stream_mode='values'):
+
+        async for state in graph.astream(inputs, config, stream_mode='values'):
             last_state = state
-            log_state(state)
-            if 'structured_response' in state:
-                response = state['structured_response']
-                last_message = state['messages'][-1].content
-                break
+            print('state')
+            print(state)
+            # log_state(state)
+            # if 'structured_response' in state:
+            #     response = state['structured_response']
+            #     last_message = state['messages'][-1].content
+            # if state.get('final'):  # Check if we've reached the END node
+            #     break
+        
+        print('findme END')
+        print(last_message)
+        return
 
         if not response or not last_message or not last_state:
             Actor.log.error('Failed to get a response from the ReAct agent!')
@@ -99,6 +315,5 @@ async def main() -> None:
 
         result = response.model_dump() if response else {}
 
-        print(result)
         await Actor.push_data(result)
         Actor.log.info('Pushed the into the dataset!')

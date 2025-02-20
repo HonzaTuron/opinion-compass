@@ -8,25 +8,34 @@ To learn how to create a new tool, see:
 """
 
 from __future__ import annotations
+from typing import Annotated
+from langgraph.prebuilt import InjectedState, ToolNode
+
+import json
+import os
 
 from apify import Actor
 from langchain_core.tools import tool
 from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
-from src.models import RawEvidence, RawEvidenceList, Evidence, EvidenceList
+from src.models import RawEvidence, RawEvidenceList, Evidence, EvidenceList, SocialMediaHandle
 
-
-@tool
-def tool_calculator_sum(numbers: list[int]) -> int:
-    """Tool to calculate the sum of a list of numbers.
-
-    Args:
-        numbers (list[int]): List of numbers to sum.
-
-    Returns:
-        int: Sum of the numbers.
-    """
-    return sum(numbers)
+class Cache[T]:
+    """A class to handle caching of data to JSON files."""
+    
+    def __init__(self, cache_name: str):
+        self.filename = f"__datacache__/cache_{cache_name}.json"
+    
+    def read(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, 'r', encoding='utf-8') as f:
+                cached_data = json.load(f)
+                return [T(**item) for item in cached_data]
+        return None
+    
+    def write(self, data: any):
+        with open(self.filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
@@ -42,6 +51,13 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
     Raises:
         RuntimeError: If the Actor fails to start.
     """
+
+    Actor.log.debug('Scraping X/Twitter posts for %s', handle)
+
+    # cache = Cache[RawEvidence]('x.json')
+    # data = cache.read()
+    # if data:
+    #     return data
 
     run_input = {
         'twitterHandles': [handle],
@@ -75,6 +91,9 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
             )
         )
 
+    # cache.write(evidence)
+    print('findme', evidence)
+    Actor.log.debug('Scraped %d X/Twitter posts for %s', len(evidence), handle)
     return evidence
 
 
@@ -92,6 +111,11 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
     Raises:
         RuntimeError: If the Actor fails to start.
     """
+    
+    cache = Cache[RawEvidence]('instagram.json')
+    data = cache.read()
+    if data:
+        return data
 
     run_input = {
         'directUrls': [f'https://www.instagram.com/{handle}/'],
@@ -123,6 +147,8 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
             )
         )
 
+    cache.write(posts)
+    
     return posts
 
 
@@ -167,7 +193,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
 #     )
 
 @tool
-async def tool_person_name_to_social_network_handle(person_name: str, social_networks: list[str]):
+async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     """Tool to scrape social media handles from Google search results.
 
     Args:
@@ -177,6 +203,14 @@ async def tool_person_name_to_social_network_handle(person_name: str, social_net
     Returns:
         list[str]: List of social media handles found in the search results.
     """
+    return json.dumps({
+        "Twitter/X": "tomio_cz",
+        "Instagram": "tomio.cz"
+    })
+
+    social_networks = ['Twitter/X', 'Instagram']
+    Actor.log.debug('Searching for handles for %s on %s', person_name, social_networks)
+
     search_query = f'{person_name} {" and ".join(social_networks)}'
     run_input = {
         'queries': search_query,
@@ -188,13 +222,33 @@ async def tool_person_name_to_social_network_handle(person_name: str, social_net
 
     dataset_id = run['defaultDatasetId']
     dataset_items = (await Actor.apify_client.dataset(dataset_id).list_items()).items[0]
-    organic_results = dataset_items.get('organicResults')
+    organic_results = dataset_items.get('organicResults')        
 
-    print(organic_results)
-    return organic_results
+    llm = ChatOpenAI(model='gpt-4o-mini', temperature=0)
+    
+    prompt = f"""Analyze these Google search results and extract social media handles for {person_name}.
+    
+    Search Results:
+    {organic_results}
+    
+    For each of these social networks: {social_networks}, find the person's handle/username.
+    If a handle cannot be found for a network, use an empty string.
+    
+    Return the results in this JSON format:
+    {{
+        "network_name": "handle" // without @ symbol
+    }}
+    
+    Only include the requested social networks in the response.
+    """
+
+    response = await llm.ainvoke(prompt)
+    Actor.log.debug('Handles for %s on %s: %s', person_name, social_networks, response.content)
+
+    return response.content
 
 @tool
-async def tool_score_evidences(evidenceList: RawEvidenceList) -> EvidenceList:
+async def tool_score_evidences(foo: str, state: Annotated[dict, InjectedState]) -> EvidenceList:
     """Tool to score evidences based on their pro-western sentiment.
 
     Args:
@@ -203,13 +257,17 @@ async def tool_score_evidences(evidenceList: RawEvidenceList) -> EvidenceList:
     Returns:
         EvidenceWithScoreList: List of evidences with their corresponding scores.
     """
+
+    print('findme scoring evidences')
+    print(state)
+    return
+
     llm = ChatOpenAI(model='gpt-4o-mini', temperature=0)
 
     prompt = f"""Analyze the following pieces of evidence and score them based on how pro-western they are.
-    For each evidence, provide a score between 0 and 1, where:
+    For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
     - 1.0 represents strongly pro-western sentiment
-    - 0.5 represents neutral sentiment
-    - 0.0 represents strongly anti-western sentiment
+    - -1.0 represents strongly anti-western sentiment
 
     Consider factors such as:
     - Support for western democratic values
@@ -217,9 +275,11 @@ async def tool_score_evidences(evidenceList: RawEvidenceList) -> EvidenceList:
     - Alignment with western foreign policy positions
     - Support for western economic systems
 
-    For each evidence, provide a relevance score between 0 and 1, where:
+    For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
     - 1.0 represents highly relevant evidence
     - 0.0 represents not relevant at all
+
+    Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
 
     Evidence is relevant if it can be used to support the claim that the person is pro-western.
 
