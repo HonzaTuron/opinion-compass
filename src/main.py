@@ -48,56 +48,8 @@ class State(TypedDict):
     handles: SocialMediaHandles
     name: str
     rawEvidence: RawEvidenceList
+    evidence: EvidenceList
     
-
-# async def social_media_handle_finding_agent(state: State):
-#     """Creates an agent that finds social media handles."""
-    
-#     print(state)
-#     Actor.log.debug('Running social media handle finding agent', state)
-
-#     llm = ChatOpenAISingleton.get_instance()
-
-#     tools = [
-#         tool_person_name_to_social_network_handle
-#     ]
-#     agent = create_react_agent(
-#         llm,
-#         tools,
-#     )
-
-#     messages = [
-#         (
-#             'user',
-#             (
-#                 f"Find the social media handles for the person {state['name']}."
-#             ),
-#         )
-#     ]
-#     response: dict = {}
-#     async for substate in agent.astream({'messages': messages}, stream_mode='values'):
-#         message = substate['messages'][-1]
-#         # traverse all tool messages and print them
-#         if isinstance(message, ToolMessage):
-#             # until the analyst message with tool_calls
-#             for _message in substate['messages'][::-1]:
-#                 if hasattr(_message, 'tool_calls'):
-#                     break
-#                 Actor.log.debug('-------- Tool --------')
-#                 Actor.log.debug('Message: %s', _message)
-#             continue
-
-#         Actor.log.debug('-------- Analyst --------')
-#         Actor.log.debug('Message: %s', message)
-#         response = substate
-#     # response = await agent.ainvoke({'messages': messages})
-
-#     Actor.log.debug('Social media handle finding agent response', response)
-#     print(response)
-#     return {
-#         "messages": [response['messages'][-1]],
-#     }
-   
 async def social_media_handle_finding_agent(state: State):
     """Creates an agent that finds social media handles."""
 
@@ -204,6 +156,8 @@ async def scoring_agent(state: State):
     
     Actor.log.debug('Running scoring agent %s', state)
 
+    # TODO - use OpenAPI to score the evidence and push to the dataset
+
     return {}
 
 
@@ -241,11 +195,7 @@ async def main() -> None:
 
          # Create the graph
         config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': debug}}
-        
-        # Create the two agents
-        # social_media_handles_agent = create_social_media_handle_finding_agent
-        # data_gathering_agent = create_data_gathering_agent(llm)
-        # scoring_agent = create_scoring_agent(llm)
+
 
         # Create the graph
         workflow = StateGraph(State)
@@ -266,10 +216,7 @@ async def main() -> None:
         # Compile the graph
         memory = MemorySaver()
         graph = workflow.compile(checkpointer=memory)
-        # graph.update_state(config, {'name': 'Tomio Okamura'})
         
-        print('findme')
-        print(graph.get_state(config))
 
         inputs: dict = {'messages': [('user', query)], "name": "Tomio Okamura"}
         response: AgentStructuredOutput | None = None
