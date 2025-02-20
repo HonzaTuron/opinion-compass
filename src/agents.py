@@ -11,7 +11,7 @@ from langchain.output_parsers import PydanticOutputParser
 from langgraph.graph.message import add_messages
 from src.llm import ChatOpenAISingleton
 from src.models import EvidenceList, RawEvidenceList, SocialMediaHandles
-from src.tools import tool_person_name_to_social_network_handle, tool_scrape_x_posts
+from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 
 # Define state type
 class State(TypedDict):
@@ -25,7 +25,7 @@ class State(TypedDict):
 
 async def social_media_handle_finding_agent(state: State):
     """Creates an agent that finds social media handles."""
-    Actor.log.info('Looking for correct social media handles')
+    Actor.log.info('Looking for correct social media handles 💻')
     Actor.log.debug('Running social media handle finding agent %s', state)
 
     llm = ChatOpenAISingleton.get_instance()
@@ -60,11 +60,11 @@ async def social_media_handle_finding_agent(state: State):
 
 async def data_gather_agent(state: State):
     """Creates the data gathering agent with social media tools."""
-    Actor.log.info('Gathering data')
+    Actor.log.info('Gathering data 🌾')
     Actor.log.debug('Running data gathering agent %s', state)
 
     tools = [
-        # tool_scrape_instagram_profile_posts,
+        tool_scrape_instagram_profile_posts,
         tool_scrape_x_posts,
     ]
 
@@ -108,7 +108,7 @@ async def data_gather_agent(state: State):
 async def scoring_agent(state: State):
     """Creates the scoring agent."""
     
-    Actor.log.info('Crunching data')
+    Actor.log.info('Crunching data 🍿')
     Actor.log.debug('Running scoring agent %s', state)
 
     llm = ChatOpenAISingleton.get_instance()

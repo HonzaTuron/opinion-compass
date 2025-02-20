@@ -62,7 +62,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
 
 
 @tool
-async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
+async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) -> list[RawEvidence]:
     """Tool to scrape Instagram profile posts.
 
     Args:
@@ -76,6 +76,9 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
         RuntimeError: If the Actor fails to start.
     """
 
+    Actor.log.debug('Scraping Instagram posts for %s', handle)
+
+
     run_input = {
         'directUrls': [f'https://www.instagram.com/{handle}/'],
         'resultsLimit': max_posts,
@@ -88,7 +91,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
 
     dataset_id = run['defaultDatasetId']
     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-    posts: list[RawEvidence] = []
+    evidence: list[RawEvidence] = []
     for item in dataset_items:
         url = item.get('url')
         caption = item.get('caption')
@@ -98,15 +101,17 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 30) 
             Actor.log.warning('Skipping post with missing fields: %s', item)
             continue
 
-        posts.append(
+        evidence.append(
             RawEvidence(
                 url=url,
                 text=caption + ' ' + (alt if alt else ''),
                 source='Instagram',
             )
         )
+
+    Actor.log.debug('Scraped %d Instagram posts for %s', len(evidence), handle)
     
-    return posts
+    return evidence
 
 
 # @tool
