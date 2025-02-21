@@ -13,7 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 from src.llm import ChatOpenAISingleton
 from src.models import AgentStructuredOutput, EvidenceList
-from src.ppe_utils import charge_for_actor_start, charge_for_ai_analysis, charge_for_evidence, get_all_messages_total_tokens
+from src.ppe_utils import charge_for_actor_start, charge_for_ai_analysis, charge_for_evidence, charge_for_free_user, get_all_messages_total_tokens
 
 DEBUG = False
 
@@ -108,6 +108,11 @@ async def main() -> None:
         Actor.log.debug('Num tokens: %s', total_tokens)
 
         result = response.model_dump()
+
+        is_paying_user = (await Actor.apify_client.user().get()).get('isPaying', False)
+        if not is_paying_user:
+            await charge_for_free_user()
+
         await charge_for_evidence(len(result['evidences']))
         await Actor.push_data(
             sorted(result['evidences'], key=lambda x: x['relevance'], reverse=True)

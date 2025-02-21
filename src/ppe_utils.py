@@ -37,6 +37,13 @@ async def charge_for_actor_start() -> None:
     count = (Actor.get_env()['memory_mbytes'] or 1024 + 1023) // 1024
     await Actor.charge(event_name='actor-start-gb', count=count)
 
+async def charge_for_free_user() -> None:
+    """Charges a surcharge for free users.
+
+    This function applies a one-time surcharge for users on the free tier.
+    """
+    await Actor.charge(event_name='free-user-surcharge', count=1)
+
 async def charge_for_ai_analysis() -> None:
     """Charges for the AI analysis.
 
