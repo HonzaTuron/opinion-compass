@@ -114,6 +114,14 @@ async def main() -> None:
 
         await charge_for_ai_analysis()
         score = analyze_results(response)
-        await Actor.set_value('ai-analysis', { "score": score })
+        await Actor.set_value(
+            'ai-analysis', 
+            {
+                "score": score, 
+                "person": person,
+                "opinion": opinion,
+                "explanation": "The score is based on the evidence that the person identifies with the opinion. It ranges from -1.0 to 1.0. The higher the score, the more the person identifies with the opinion. 1 means strong identification, -1 means strong opposition, 0 means inconclusive evidence."
+            }
+        )
         Actor.log.info('The final score is %s', score)
 

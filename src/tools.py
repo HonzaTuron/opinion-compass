@@ -9,7 +9,6 @@ from langchain_openai import ChatOpenAI
 from src.models import RawEvidence, EvidenceList
 
 MAX_TEXT_LENGTH = 200
-NUM_POSTS_TO_SCRAPE = 10
 
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
