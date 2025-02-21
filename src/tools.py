@@ -118,47 +118,6 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
     
     return evidence
 
-
-# @tool
-# async def tool_scrape_wikipedia_page(page_title: str) -> Evidence:
-#     """Tool to scrape a Wikipedia page.
-
-#     Args:
-#         page_title (str): Title of the Wikipedia page to scrape.
-
-#     Returns:
-#         Evidence: Evidence object containing the scraped page content.
-
-#     Raises:
-#         RuntimeError: If the Actor fails to start.
-#     """
-#     run_input = {
-#         'url': f'https://en.wikipedia.org/wiki/{page_title}',
-#     }
-#     if not (run := await Actor.apify_client.actor('apify/web-scraper').call(run_input=run_input)):
-#         msg = 'Failed to start the Actor apify/web-scraper'
-#         raise RuntimeError(msg)
-
-#     dataset_id = run['defaultDatasetId']
-#     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-#     if not dataset_items:
-#         msg = 'Failed to scrape the Wikipedia page'
-#         raise RuntimeError(msg)
-
-#     item = dataset_items[0]
-#     url = item.get('url')
-#     text = item.get('text')
-
-#     if not url or not text:
-#         msg = 'Failed to scrape the Wikipedia page'
-#         raise RuntimeError(msg)
-
-#     return Evidence(
-#         url=url,
-#         text=text,
-#         source='Wikipedia',
-#     )
-
 @tool
 async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     """Tool to scrape social media handles from Google search results.
@@ -195,6 +154,7 @@ async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     {organic_results}
     
     For each of these social networks: {social_networks}, find the person's handle/username.
+    If more organic results would be relevant, choose the one earlier in the list.
     If a handle cannot be found for a network, use an empty string.
     
     Return the results in this JSON format:
