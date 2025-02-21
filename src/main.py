@@ -103,11 +103,13 @@ async def main() -> None:
 
         result = response.model_dump()
         await charge_for_evidence(len(result['evidences']))
-        await Actor.push_data(result)
+        await Actor.push_data(
+            sorted(result['evidences'], key=lambda x: x['relevance'], reverse=True)
+        )
         Actor.log.info('Pushed evidence into the dataset!')
 
         await charge_for_ai_analysis()
         score = analyze_results(response)
         await Actor.set_value('ai-analysis', { "score": score })
         Actor.log.info('The final score is %s', score)
-        
+

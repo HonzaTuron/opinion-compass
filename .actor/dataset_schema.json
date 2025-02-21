@@ -4,18 +4,30 @@
     "overview": {
       "title": "Overview",
       "transformation": {
-        "fields": ["response", "structured_response"]
+        "fields": ["source", "score", "relevance", "text", "url"]
       },
       "display": {
         "component": "table",
         "properties": {
-          "response": {
-            "label": "Response",
+          "url": {
+            "label": "URL",
             "format": "text"
           },
-          "structured_response": {
-            "label": "Structured Response",
-            "format": "object"
+          "text": {
+            "label": "Text",
+            "format": "text"
+          },
+          "source": {
+            "label": "Source",
+            "format": "text"
+          },
+          "score": {
+            "label": "Score",
+            "format": "text"
+          },
+          "relevance": {
+            "label": "Relevance",
+            "format": "text"
           }
         }
       }
