@@ -47,16 +47,18 @@ async def main() -> None:
         actor_input = await Actor.get_input()
 
         person = actor_input.get('person')
-        opinion = actor_input.get('opinion', 'pro-western')
+        opinion = actor_input.get('opinion')
+        if not opinion or not person:
+            raise ValueError('Opinion and person are required')
 
-        debug = False
+        debug = True
         if debug:
             Actor.log.setLevel(logging.DEBUG)
 
         query = f"""
-            Find out if {person} identifies with following opinions: {opinion}.
+            Find out if {person} identifies with following opinion: {opinion}.
             To do this, find his social media handles and scrape his posts from social media.
-            Then, score each post based on how {opinion} it is.
+            Then, score each post based on how strongly the person identifies with the opinion.
         """
 
         await charge_for_actor_start()
@@ -112,6 +114,14 @@ async def main() -> None:
 
         await charge_for_ai_analysis()
         score = analyze_results(response)
-        await Actor.set_value('ai-analysis', { "score": score })
+        await Actor.set_value(
+            'ai-analysis', 
+            {
+                "score": score, 
+                "person": person,
+                "opinion": opinion,
+                "explanation": "The score is based on the evidence that the person identifies with the opinion. It ranges from -1.0 to 1.0. The higher the score, the more the person identifies with the opinion. 1 means strong identification, -1 means strong opposition, 0 means inconclusive evidence."
+            }
+        )
         Actor.log.info('The final score is %s', score)
 

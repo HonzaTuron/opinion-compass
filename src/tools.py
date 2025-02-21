@@ -8,8 +8,6 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
 from src.models import RawEvidence, EvidenceList
 
-MAX_TEXT_LENGTH = 200
-
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
     """Tool to scrape X (Twitter) posts.
@@ -25,7 +23,9 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
         RuntimeError: If the Actor fails to start.
     """
 
+    Actor.log.info('Gathering X/Twitter data 💻.')
     Actor.log.debug('Scraping X/Twitter posts for %s', handle)
+    
 
     run_input = {
         'twitterHandles': [handle],
@@ -54,7 +54,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
         evidence.append(
             RawEvidence(
                 url=url,
-                text=text if len(text) < MAX_TEXT_LENGTH else f"{text[:MAX_TEXT_LENGTH]}...",
+                text=text,
                 source=source,
             )
         )
@@ -77,7 +77,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
     Raises:
         RuntimeError: If the Actor fails to start.
     """
-
+    Actor.log.info('Gathering Instagram data 🤳.')
     Actor.log.debug('Scraping Instagram posts for %s', handle)
 
 
@@ -103,7 +103,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
             Actor.log.warning('Skipping post with missing fields: %s', item)
             continue
         text = caption + ' ' + (alt if alt else '')
-        text = text if len(text) < MAX_TEXT_LENGTH else f"{text[:MAX_TEXT_LENGTH]}..."
+        text = text
         evidence.append(
             RawEvidence(
                 url=url,
@@ -115,47 +115,6 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
     Actor.log.debug('Scraped %d Instagram posts for %s', len(evidence), handle)
     
     return evidence
-
-
-# @tool
-# async def tool_scrape_wikipedia_page(page_title: str) -> Evidence:
-#     """Tool to scrape a Wikipedia page.
-
-#     Args:
-#         page_title (str): Title of the Wikipedia page to scrape.
-
-#     Returns:
-#         Evidence: Evidence object containing the scraped page content.
-
-#     Raises:
-#         RuntimeError: If the Actor fails to start.
-#     """
-#     run_input = {
-#         'url': f'https://en.wikipedia.org/wiki/{page_title}',
-#     }
-#     if not (run := await Actor.apify_client.actor('apify/web-scraper').call(run_input=run_input)):
-#         msg = 'Failed to start the Actor apify/web-scraper'
-#         raise RuntimeError(msg)
-
-#     dataset_id = run['defaultDatasetId']
-#     dataset_items: list[dict] = (await Actor.apify_client.dataset(dataset_id).list_items()).items
-#     if not dataset_items:
-#         msg = 'Failed to scrape the Wikipedia page'
-#         raise RuntimeError(msg)
-
-#     item = dataset_items[0]
-#     url = item.get('url')
-#     text = item.get('text')
-
-#     if not url or not text:
-#         msg = 'Failed to scrape the Wikipedia page'
-#         raise RuntimeError(msg)
-
-#     return Evidence(
-#         url=url,
-#         text=text,
-#         source='Wikipedia',
-#     )
 
 @tool
 async def tool_person_name_to_social_network_handle(person_name: str) -> str:
@@ -193,6 +152,7 @@ async def tool_person_name_to_social_network_handle(person_name: str) -> str:
     {organic_results}
     
     For each of these social networks: {social_networks}, find the person's handle/username.
+    If more organic results would be relevant, choose the one earlier in the list.
     If a handle cannot be found for a network, use an empty string.
     
     Return the results in this JSON format:

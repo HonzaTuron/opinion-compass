@@ -13,6 +13,9 @@ from src.llm import ChatOpenAISingleton
 from src.models import EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 
+# Number of posts to scrape from each social network
+NUM_POSTS_TO_SCRAPE = 20
+
 # Define state type
 class State(TypedDict):
     """State of the agent graph."""
@@ -81,7 +84,7 @@ async def data_gather_agent(state: State):
             {handles_prompt}
 
             Instructions:
-            1. Get 10 most recent posts from each social network using person's handle.
+            1. Get {NUM_POSTS_TO_SCRAPE} most recent posts from each social network using person's handle.
             2. For each social media, only use the corresponding handle from the mapping above.
             3. If the handle for this social media is missing, skip this social media.
             3. Combine all evidence into a single list
@@ -114,47 +117,72 @@ async def scoring_agent(state: State):
 
 
     actor_input = await Actor.get_input()
-    opinion = actor_input.get('opinion', 'pro-western')
+    opinion = actor_input.get('opinion')
+    if not opinion:
+        raise ValueError('Opinion is required')
 
     llm = ChatOpenAISingleton.get_instance()
     raw_evidence = state["rawEvidence"]
 
-    prompt = f"""Analyze the following pieces of evidence and score them based on how {opinion} they are.
+    prompt = f"""Analyze the following pieces of evidence and score them based on how the person identifies with the following opinion: "{opinion}".
     For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
-    - 1.0 represents strongly {opinion} sentiment
-    - -1.0 represents strongly anti-western sentiment
+    - 1.0 represents that the person strongly identifies with the opinion: "{opinion}"
+    - -1.0 represents that the person does not identifiy at all with the opinion: "{opinion}", or strongly opposes it or itendifies with the opposite opinion.
 
-    Consider factors such as:
-    - Support for western democratic values
-    - Positive mentions of western countries, institutions, or leaders
-    - Alignment with western foreign policy positions
-    - Support for western economic systems
-
+    Use the whole floating point range from -1.0 to 1.0, always write number with a single decimal place.
+    
+    When deciding on whether the person identifies with the opinion, think step by step.
+    
     For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
     - 1.0 represents highly relevant evidence
     - 0.0 represents not relevant at all
+
+    When deciding on relevance, think step by step.
 
     Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
 
     Evidence is relevant if it can be used to support the claim that the person is {opinion}.
 
     Evidence to analyze:
-    {[{"text": e.text} for e in raw_evidence.evidences]}
+    {[{"text": e.text, "url": e.url, "source": e.source} for e in raw_evidence.evidences]}
 
     Return the results in the following JSON format:
     {{"evidences": [
         {{
-          "url": "evidence_url",
-          "text": "evidence_text",
-          "source": "evidence_source",
-          "score": 0.0 to 1.0
-          "relevance": 0.0 to 1.0
+          "url": ...copy over the URL from the input evidence,
+          "text": ...copy over the text from the input evidence,
+          "source": ...copy over the source from the input evidence,
+          "score": ...single number from 0.0 to 1.0. No additional text.
+          "relevance": ...single number from 0.0 to 1.0. No additional text.
         }},
         ...
     ]
     }}
 
     Url, text and source are always present in the evidence. Just copy them over to the output.
+
+
+    Example output json:
+        {{"evidences": [
+        {{
+          "url": "https://www.example.com",
+          "text": "This is an example text",
+          "source": "Example source",
+          "score": -0.5
+          "relevance": 0.1
+        }},
+        {{
+          "url": "https://www.example.com",
+          "text": "EU should work closer together.",
+          "source": "Twitter",
+          "score": 0.8
+          "relevance": 0.7
+        }}
+    ]
+    }}
+
+    Respect the JSON format for output. Do not output anything else than the JSON.
+    Sanitize the output to ensure it can be parsen as JSON. If you encounter any parts that couldn't be parsed as JSON, remove them.
     """
     response = await llm.ainvoke(prompt)
 

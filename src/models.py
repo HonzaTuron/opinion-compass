@@ -30,7 +30,7 @@ class RawEvidenceList(BaseModel):
 
 class Evidence(RawEvidence):
     """Represents evidence relating to a claim of particular person with a score."""
-    score: float # Score from 0 to 1 where 1 pro-western and 0 means anti-western
+    score: float # Score from 0 to 1 where 1 means that the strongly identifies with the opinion
     relevance: float # Relevance score from 0 to 1 where 1 is highly relevant and 0 is not relevant at all
 
 class EvidenceList(BaseModel):
