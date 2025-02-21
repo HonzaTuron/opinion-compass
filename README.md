@@ -20,9 +20,6 @@ Each piece of evidence is evaluated with two key metrics:
   - 1.0: Highly relevant evidence
   - 0.0: Not relevant
 
-### Aggregated Score
-The system produces a final aggregated score (-1.0 to 1.0) that considers all pieces of evidence, weighted by their relevance. This provides a comprehensive assessment of the person's stance on the given opinion.
-
 Example output of single evidence data point:
 ```json
     {
@@ -33,6 +30,9 @@ Example output of single evidence data point:
         "url": "https://x.com/PM_ViktorOrban/status/1889976335897899377"
     }
 ```
+
+### Aggregated Score
+The system produces a final aggregated score (-1.0 to 1.0) that considers all pieces of evidence, weighted by their relevance. This provides a comprehensive assessment of the person's stance on the given opinion.
 
 ## Tutorial Section
 ### How to use Opinion Compass to analyze opinions
