@@ -41,8 +41,8 @@ The system produces a final aggregated score (-1.0 to 1.0) that considers all pi
 
 ```json
 {
-  "person": "Tomio Okamura",
-  "opinion": "Democratic values are important."
+  "person": "Name of person you want to analyze, e.g. Donald Trump",
+  "opinion": "Opinion statement you want to analyze, e.g. 'USA should always come first.'"
 }
 ```
 

@@ -15,6 +15,8 @@ from src.llm import ChatOpenAISingleton
 from src.models import AgentStructuredOutput, EvidenceList
 from src.ppe_utils import charge_for_actor_start, charge_for_ai_analysis, charge_for_evidence, get_all_messages_total_tokens
 
+DEBUG = False
+
 def analyze_results(evidenceList: EvidenceList) -> float:
     """Analyzes evidence results by calculating weighted sum of scores weighted by relevance.
         
@@ -51,8 +53,8 @@ async def main() -> None:
         if not opinion or not person:
             raise ValueError('Opinion and person are required')
 
-        debug = True
-        if debug:
+        
+        if DEBUG:
             Actor.log.setLevel(logging.DEBUG)
 
         query = f"""
