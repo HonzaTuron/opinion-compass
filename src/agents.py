@@ -13,6 +13,9 @@ from src.llm import ChatOpenAISingleton
 from src.models import EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 
+# Number of posts to scrape from each social network
+NUM_POSTS_TO_SCRAPE = 10
+
 # Define state type
 class State(TypedDict):
     """State of the agent graph."""
@@ -81,7 +84,7 @@ async def data_gather_agent(state: State):
             {handles_prompt}
 
             Instructions:
-            1. Get 10 most recent posts from each social network using person's handle.
+            1. Get {NUM_POSTS_TO_SCRAPE} most recent posts from each social network using person's handle.
             2. For each social media, only use the corresponding handle from the mapping above.
             3. If the handle for this social media is missing, skip this social media.
             3. Combine all evidence into a single list
@@ -139,22 +142,38 @@ async def scoring_agent(state: State):
     Evidence is relevant if it can be used to support the claim that the person is {opinion}.
 
     Evidence to analyze:
-    {[{"text": e.text} for e in raw_evidence.evidences]}
+    {[{"text": e.text, "url": e.url, "source": e.source} for e in raw_evidence.evidences]}
 
     Return the results in the following JSON format:
     {{"evidences": [
         {{
-          "url": "evidence_url",
-          "text": "evidence_text",
-          "source": "evidence_source",
-          "score": 0.0 to 1.0
-          "relevance": 0.0 to 1.0
+          "url": ...copy over the URL from the input evidence,
+          "text": ...copy over the text from the input evidence,
+          "source": ...copy over the source from the input evidence,
+          "score": ...single number from 0.0 to 1.0. No additional text.
+          "relevance": ...single number from 0.0 to 1.0. No additional text.
         }},
         ...
     ]
     }}
 
     Url, text and source are always present in the evidence. Just copy them over to the output.
+
+
+    Example output json:
+        {{"evidences": [
+        {{
+          "url": "https://www.example.com",
+          "text": "This is an example text",
+          "source": "Example source",
+          "score": 0.5
+          "relevance": 0.7
+        }},
+        ...
+    ]
+    }}
+
+    Respect the JSON format for output. Do not output anything else than the JSON.
     """
     response = await llm.ainvoke(prompt)
 

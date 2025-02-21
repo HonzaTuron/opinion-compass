@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from src.models import RawEvidence, EvidenceList
 
 MAX_TEXT_LENGTH = 200
+NUM_POSTS_TO_SCRAPE = 10
 
 @tool
 async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvidence]:
@@ -25,7 +26,9 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
         RuntimeError: If the Actor fails to start.
     """
 
+    Actor.log.info('Gathering X/Twitter data 💻.')
     Actor.log.debug('Scraping X/Twitter posts for %s', handle)
+    
 
     run_input = {
         'twitterHandles': [handle],
@@ -77,7 +80,7 @@ async def tool_scrape_instagram_profile_posts(handle: str, max_posts: int = 20) 
     Raises:
         RuntimeError: If the Actor fails to start.
     """
-
+    Actor.log.info('Gathering Instagram data 🤳.')
     Actor.log.debug('Scraping Instagram posts for %s', handle)
 
 
