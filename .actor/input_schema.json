@@ -10,21 +10,13 @@
       "editor": "textfield",
       "prefill": "Tomio Okamura"
     },
-    "opinionCategory": {
-      "title": "Opinion category",
+    "opinion": {
+      "title": "Opinion",
       "type": "string",
       "description": "Opinion you want to analyze for given person.",
       "editor": "textfield",
-      "prefill": "pro-Russian"
-
-    },
-    "debug": {
-      "title": "Debug",
-      "type": "boolean",
-      "description": "If enabled, the Actor will run in debug mode and produce more output.",
-      "editor": "checkbox",
-      "default": false
+      "prefill": "pro-western"
     }
   },
-  "required": ["person", "opinionCategory"]
+  "required": ["person"]
 }
