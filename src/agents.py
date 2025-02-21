@@ -129,6 +129,8 @@ async def scoring_agent(state: State):
     - 1.0 represents that the person strongly identifies with the opinion: "{opinion}"
     - -1.0 represents that the person does not identifiy at all with the opinion: "{opinion}", or strongly opposes it or itendifies with the opposite opinion.
 
+    Use the whole floating point range from -1.0 to 1.0, always write number with a single decimal place.
+    
     When deciding on whether the person identifies with the opinion, think step by step.
     
     For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
@@ -166,10 +168,16 @@ async def scoring_agent(state: State):
           "url": "https://www.example.com",
           "text": "This is an example text",
           "source": "Example source",
-          "score": 0.5
-          "relevance": 0.7
+          "score": -0.5
+          "relevance": 0.1
         }},
-        ...
+        {{
+          "url": "https://www.example.com",
+          "text": "EU should work closer together.",
+          "source": "Twitter",
+          "score": 0.8
+          "relevance": 0.7
+        }}
     ]
     }}
 
