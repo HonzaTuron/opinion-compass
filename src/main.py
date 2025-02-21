@@ -56,7 +56,7 @@ async def main() -> None:
         query = f"""
             Find out if {person} identifies with following opinions: {opinion}.
             To do this, find his social media handles and scrape his posts from social media.
-            Then, score each post based on how pro-western it is.
+            Then, score each post based on how {opinion} it is.
         """
 
         await charge_for_actor_start()
