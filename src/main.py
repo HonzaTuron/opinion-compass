@@ -51,7 +51,7 @@ async def main() -> None:
         if not opinion or not person:
             raise ValueError('Opinion and person are required')
 
-        debug = False
+        debug = True
         if debug:
             Actor.log.setLevel(logging.DEBUG)
 
