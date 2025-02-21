@@ -54,7 +54,7 @@ async def tool_scrape_x_posts(handle: str, max_posts: int = 30) -> list[RawEvide
         evidence.append(
             RawEvidence(
                 url=url,
-                text=text
+                text=text,
                 source=source,
             )
         )
