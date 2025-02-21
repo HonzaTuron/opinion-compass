@@ -68,7 +68,7 @@ async def main() -> None:
         ChatOpenAISingleton.create_get_instance(model='gpt-4o')
 
          # Create the graph
-        config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': debug}}
+        config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': DEBUG}}
 
         # Create the graph
         workflow = StateGraph(State)
