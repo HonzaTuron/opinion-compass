@@ -47,16 +47,18 @@ async def main() -> None:
         actor_input = await Actor.get_input()
 
         person = actor_input.get('person')
-        opinion = actor_input.get('opinion', 'pro-western')
+        opinion = actor_input.get('opinion')
+        if not opinion or not person:
+            raise ValueError('Opinion and person are required')
 
         debug = False
         if debug:
             Actor.log.setLevel(logging.DEBUG)
 
         query = f"""
-            Find out if {person} identifies with following opinions: {opinion}.
+            Find out if {person} identifies with following opinion: {opinion}.
             To do this, find his social media handles and scrape his posts from social media.
-            Then, score each post based on how pro-western it is.
+            Then, score each post based on how strongly the person identifies with the opinion.
         """
 
         await charge_for_actor_start()

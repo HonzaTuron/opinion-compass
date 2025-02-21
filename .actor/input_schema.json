@@ -15,8 +15,8 @@
       "type": "string",
       "description": "Opinion you want to analyze for given person.",
       "editor": "textfield",
-      "prefill": "pro-western"
+      "prefill": "Democratic values are important."
     }
   },
-  "required": ["person"]
+  "required": ["person", "opinion"]
 }

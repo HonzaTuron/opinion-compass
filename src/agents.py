@@ -114,25 +114,25 @@ async def scoring_agent(state: State):
 
 
     actor_input = await Actor.get_input()
-    opinion = actor_input.get('opinion', 'pro-western')
+    opinion = actor_input.get('opinion')
+    if not opinion:
+        raise ValueError('Opinion is required')
 
     llm = ChatOpenAISingleton.get_instance()
     raw_evidence = state["rawEvidence"]
 
-    prompt = f"""Analyze the following pieces of evidence and score them based on how {opinion} they are.
+    prompt = f"""Analyze the following pieces of evidence and score them based on how the person identifies with the following opinion: "{opinion}".
     For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
-    - 1.0 represents strongly {opinion} sentiment
-    - -1.0 represents strongly anti-western sentiment
+    - 1.0 represents that the person strongly identifies with the opinion: "{opinion}"
+    - -1.0 represents that the person does not identifiy at all with the opinion: "{opinion}", or strongly opposes it or itendifies with the opposite opinion.
 
-    Consider factors such as:
-    - Support for western democratic values
-    - Positive mentions of western countries, institutions, or leaders
-    - Alignment with western foreign policy positions
-    - Support for western economic systems
-
+    When deciding on whether the person identifies with the opinion, think step by step.
+    
     For each evidence, provide a relevance score between 0.0 and 1.0 (inclusive), where:
     - 1.0 represents highly relevant evidence
     - 0.0 represents not relevant at all
+
+    When deciding on relevance, think step by step.
 
     Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
 
