@@ -47,19 +47,21 @@ async def main() -> None:
         actor_input = await Actor.get_input()
 
         person = actor_input.get('person')
-        debug = actor_input.get('debug', False)
-        model_name = actor_input.get('modelName', 'gpt-4o')
+        opinion = actor_input.get('opinion', 'pro-western')
+
+        debug = False
         if debug:
             Actor.log.setLevel(logging.DEBUG)
 
         query = f"""
-            Find out if {person} is pro-western. To do this, find his social media handles and scrape his posts from social media.
+            Find out if {person} identifies with following opinions: {opinion}.
+            To do this, find his social media handles and scrape his posts from social media.
             Then, score each post based on how pro-western it is.
         """
 
         await charge_for_actor_start()
 
-        ChatOpenAISingleton.create_get_instance(model=model_name)
+        ChatOpenAISingleton.create_get_instance(model='gpt-4o')
 
          # Create the graph
         config: RunnableConfig = {'configurable': {'thread_id': '1', 'debug': debug}}

@@ -112,12 +112,16 @@ async def scoring_agent(state: State):
     Actor.log.info('Crunching data 🍿')
     Actor.log.debug('Running scoring agent %s', state)
 
+
+    actor_input = await Actor.get_input()
+    opinion = actor_input.get('opinion', 'pro-western')
+
     llm = ChatOpenAISingleton.get_instance()
     raw_evidence = state["rawEvidence"]
 
-    prompt = f"""Analyze the following pieces of evidence and score them based on how pro-western they are.
+    prompt = f"""Analyze the following pieces of evidence and score them based on how {opinion} they are.
     For each evidence, provide a score between -1.0 and 1.0 (inclusive), where:
-    - 1.0 represents strongly pro-western sentiment
+    - 1.0 represents strongly {opinion} sentiment
     - -1.0 represents strongly anti-western sentiment
 
     Consider factors such as:
@@ -132,7 +136,7 @@ async def scoring_agent(state: State):
 
     Score and relevance can be any floating point number with single decimal place, in the ranges defined above.
 
-    Evidence is relevant if it can be used to support the claim that the person is pro-western.
+    Evidence is relevant if it can be used to support the claim that the person is {opinion}.
 
     Evidence to analyze:
     {[{"text": e.text} for e in raw_evidence.evidences]}
