@@ -7,6 +7,8 @@ Key functionalities:
 - **AI Analysis:** Leverages AI technology to provide analysis on the provided opinions.
 - **Evidence Consideration:** Includes various pieces of evidence that influence the final analysis, enhancing the comprehensiveness of the insights.
 
+![Opinion Compass Logo](compass.png)
+
 ### Evidence Scoring
 
 The Opinion Compass analyzes multiple pieces of evidence and provides detailed scoring:

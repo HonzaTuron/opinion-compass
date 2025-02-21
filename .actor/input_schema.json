@@ -8,14 +8,14 @@
       "type": "string",
       "description": "Person whose opinions you want to analyze.",
       "editor": "textfield",
-      "prefill": "Tomio Okamura"
+      "prefill": "Donald Trump"
     },
     "opinion": {
       "title": "Opinion",
       "type": "string",
       "description": "Opinion you want to analyze for given person.",
       "editor": "textfield",
-      "prefill": "Democratic values are important."
+      "prefill": "USA should always come first."
     }
   },
   "required": ["person", "opinion"]
