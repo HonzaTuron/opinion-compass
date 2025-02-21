@@ -14,7 +14,7 @@ from src.models import EvidenceList, RawEvidenceList, SocialMediaHandles
 from src.tools import tool_person_name_to_social_network_handle, tool_scrape_instagram_profile_posts, tool_scrape_x_posts
 
 # Number of posts to scrape from each social network
-NUM_POSTS_TO_SCRAPE = 10
+NUM_POSTS_TO_SCRAPE = 20
 
 # Define state type
 class State(TypedDict):
@@ -182,6 +182,7 @@ async def scoring_agent(state: State):
     }}
 
     Respect the JSON format for output. Do not output anything else than the JSON.
+    Sanitize the output to ensure it can be parsen as JSON. If you encounter any parts that couldn't be parsed as JSON, remove them.
     """
     response = await llm.ainvoke(prompt)
 
