@@ -1,5 +1,7 @@
 # Opinion Compass
 
+![Actor badge](https://apify.com/actor-badge?actor=jan.turon/opinion-compass)
+
 ## Introduction and Features
 The Opinion Compass is designed to analyze the opinions of individuals based on specified statements. Users can simply provide the name of the person whose opinions they want to analyze along with the specific opinion statement. 
 
